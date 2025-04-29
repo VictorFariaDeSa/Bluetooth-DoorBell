@@ -5,6 +5,8 @@
 BluetoothSerial SerialBT;
 bool button_pressed = false;
 bool bt_connected = false;
+unsigned long last_check = 0;
+
 
 void button_callback() {
   if (!button_pressed && digitalRead(BUTTON_PIN)) {
@@ -16,39 +18,40 @@ void button_callback() {
   }
 }
 
-void check_bt_connection() {
-  bool current_status = SerialBT.hasClient();
-
-  if (bt_connected && !current_status) {
-    Serial.println("⚠ Dispositivo desconectado! Reiniciando Bluetooth...");
-    SerialBT.end();
-    delay(1000);
-    SerialBT.begin("Campainha");
-  }
-
-  if (!bt_connected && current_status) {
-    Serial.println("🔵 Dispositivo conectado!");
-  }
-
-  bt_connected = current_status;
+void restart_bt() {
+  Serial.println("⚠ Dispositivo desconectado! Reiniciando Bluetooth...");
+  SerialBT.end();
+  delay(1000);
+  SerialBT.begin("Campainha");
+  delay(1000);
 }
 
 void setup() {
   pinMode(BUTTON_PIN, INPUT_PULLDOWN);
   pinMode(14, OUTPUT);
   digitalWrite(14, HIGH);
+  Serial.begin(115200);
   SerialBT.begin("Campainha");
   delay(100);
 }
 
 void loop() {
+    if (!SerialBT.connected()) {
+    Serial.println("Tentando reconectar...");
+    SerialBT.begin("Campainha");
+    delay(2000);
+  }
   if (SerialBT.available()) {
-    String data = SerialBT.readString();
+    String data = SerialBT.readStringUntil('\n');
     data.trim();
+    Serial.println(data);
     if (data == "ping") {
       SerialBT.println("pong");
+      last_check = millis();
+      bt_connected = true;
     }
   }
+
   button_callback();
   delay(100);
 }
